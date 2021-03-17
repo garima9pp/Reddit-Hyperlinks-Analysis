@@ -1,0 +1,232 @@
+options(digits=2)
+options(scipen=999)
+library(tidyverse)
+setwd("E:/BANA277/Project")
+#BODY Analysis
+data1 <- read.table(file = 'soc-redditHyperlinks-body.tsv', sep = '\t', header = TRUE)
+#data1 <- read.table(file = 'soc-redditHyperlinks-title.tsv', sep = '\t', header = TRUE)
+#install.packages("sna")
+library(sna)
+#Body analysis splitting the properties column
+library(splitstackshape)
+properties<- cSplit(data1,"PROPERTIES",  ",")
+colnames(properties) <- c("SOURCE_SUBREDDIT","TARGET_SUBREDDIT", "POST_ID","TIMESTAMP","LINK_SENTIMENT" , 
+                          'Num_Chars',
+                          'Num_Chars_wo_white_space',
+                          'Fraction of alphabetical characters',
+                          'Fraction of digits',
+                          'Fraction of uppercase characters',
+                          'Fraction of white spaces',
+                          'Fraction of special characters',
+                          'Number of words',
+                          'Number of unique works',
+                          'Number of long words_at_least_6_chars',
+                          'Average word length',
+                          'Number of unique stopwords',
+                          'Fraction of stopwords',
+                          'Number of sentences',
+                          'Number of long sentences at least 10 words',
+                          'Average number of characters per sentence',
+                          'Average number of words per sentence',
+                          'Automated readability index',
+                          'Positive sentiment calculated by VADER',
+                          'Negative sentiment calculated by VADER',
+                          'Compound sentiment calculated by VADER',
+                          'LIWC_Funct',
+                          'LIWC_Pronoun',
+                          'LIWC_Ppron',
+                          'LIWC_I',
+                          'LIWC_We',
+                          'LIWC_You',
+                          'LIWC_SheHe',
+                          'LIWC_They',
+                          'LIWC_Ipron',
+                          'LIWC_Article',
+                          'LIWC_Verbs',
+                          'LIWC_AuxVb',
+                          'LIWC_Past',
+                          'LIWC_Present',
+                          'LIWC_Future',
+                          'LIWC_Adverbs',
+                          'LIWC_Prep',
+                          'LIWC_Conj',
+                          'LIWC_Negate',
+                          'LIWC_Quant',
+                          'LIWC_Numbers',
+                          'LIWC_Swear',
+                          'LIWC_Social',
+                          'LIWC_Family',
+                          'LIWC_Friends',
+                          'LIWC_Humans',
+                          'LIWC_Affect',
+                          'LIWC_Posemo',
+                          'LIWC_Negemo',
+                          'LIWC_Anx',
+                          'LIWC_Anger',
+                          'LIWC_Sad',
+                          'LIWC_CogMech',
+                          'LIWC_Insight',
+                          'LIWC_Cause',
+                          'LIWC_Discrep',
+                          'LIWC_Tentat',
+                          'LIWC_Certain',
+                          'LIWC_Inhib',
+                          'LIWC_Incl',
+                          'LIWC_Excl',
+                          'LIWC_Percept',
+                          'LIWC_See',
+                          'LIWC_Hear',
+                          'LIWC_Feel',
+                          'LIWC_Bio',
+                          'LIWC_Body',
+                          'LIWC_Health',
+                          'LIWC_Sexual',
+                          'LIWC_Ingest',
+                          'LIWC_Relativ',
+                          'LIWC_Motion',
+                          'LIWC_Space',
+                          'LIWC_Time',
+                          'LIWC_Work',
+                          'LIWC_Achiev',
+                          'LIWC_Leisure',
+                          'LIWC_Home',
+                          'LIWC_Money',
+                          'LIWC_Relig',
+                          'LIWC_Death',
+                          'LIWC_Assent',
+                          'LIWC_Dissent',
+                          'LIWC_Nonflu',
+                          'LIWC_Filler')
+
+library(psych)
+library(lubridate)
+#as.POSIXct(properties$TIMESTAMP)
+#class(properties$TIMESTAMP)
+#properties$date <- as.Date(properties$TIMESTAMP)
+describe_data1 <- properties %>% select(SOURCE_SUBREDDIT,TARGET_SUBREDDIT,
+                                        POST_ID,LINK_SENTIMENT)
+#data dist analysis
+describe_data <- describe(describe_data1) 
+#describe_prop <- describe(properties[,6:91])
+
+#install.packages("tidygraph")
+library(tidygraph)
+#install.packages("graphlayouts")
+library(graphlayouts)
+#install.packages("ggraph")
+library(ggraph)
+# for visualizing
+library(igraph)
+library(extrafont)
+#install.packages("visNetwork")
+library(visNetwork)
+library(geomnet)
+
+#EDA
+#obs
+properties$date <- as.Date(properties$TIMESTAMP)
+eda <- properties %>% group_by(format(date, "%Y-%m")) %>% summarise(obs=n())
+write.csv(eda,"eda.csv")
+#We can assume that the Reddit popularity grew steadily as people were linking more and more posts over the years.
+#posts
+head(properties %>% group_by(POST_ID) %>% summarise(obs=n()) %>% arrange(desc(obs)))
+#As we can observe there are no posts with many links from or to other Subreddits. We will ignore them in our further analysis.
+#install.packages("threejs")
+library(threejs)
+
+#graph building
+g <- graph.data.frame(data1, directed=TRUE)
+
+#Eigenvector centrality is a measure of importance or influence of a node in a graph. Similarly to PageRank, it takes into account the number of neighbors a node has combined with their influence. A high eigenvector centrality means that a node has relationships to many other nodes with high centrality.
+#In general, vertices with high eigenvector centralities are those which are connected to many other vertices which are, in turn, connected to many others (and so on). (
+ec <- as.data.frame(eigen_centrality(g))
+ec %>% arrange(desc(vector)) %>% select(vector) %>% head(10)
+overall_EC <- write.csv(ec,"ec.csv")
+#positive sentiment
+pos_sen <- data1 %>% filter(LINK_SENTIMENT ==1)
+g_pos <- graph.data.frame(pos_sen, directed=TRUE)
+
+ec_pos <- as.data.frame(eigen_centrality(g_pos))
+ec_pos %>% arrange(desc(vector)) %>% select(vector) %>% head(10)
+str(properties)
+
+#negative sentiment
+neg_sen <- data1 %>% filter(LINK_SENTIMENT == -1)
+g_neg <- graph.data.frame(neg_sen, directed=TRUE)
+
+ec_neg <- as.data.frame(eigen_centrality(g_neg))
+ec_neg %>% arrange(desc(vector)) %>% select(vector) %>% head(10)
+#It is interesting to see that the top five Subreddits for both positive and negative link sentiment subgraphs have four common members.
+#degree calc
+#The vectors are subject to change basis on the output from above
+ec_vector <- c("askreddit","circlebroke","outoftheloop","writingprompts","pics",
+                  "subredditdrama","videos","todayilearned","explainlikeimfive","funny")
+
+ecpos_vector <- c("askreddit","outoftheloop","writingprompts","pics","circlebroke",
+                  "iama","explainlikeimfive","todayilearned","videos","funny")
+
+ecneg_vector <- c("circlebroke","askreddit","subredditdrama","videos","pics",
+                  "news","writingprompts","worldnews","funny","circlejerkcopypasta")
+#in degree
+g <- graph.data.frame(data1, directed=TRUE)
+in_degree <- as.data.frame(degree(g, mode = 'in'))
+in_degree <- cbind("Nodes" = rownames(in_degree), in_degree)
+rownames(in_degree) <- 1:nrow(in_degree)
+in_degree <- in_degree %>% filter(Nodes %in%  ecneg_vector )
+write.csv(out_degree,"out_degree.csv")
+#out degree
+#g <- graph.data.frame(degree_data, directed=TRUE)
+out_degree <- as.data.frame(degree(g, mode = 'out'))
+out_degree <- cbind("Nodes" = rownames(out_degree), out_degree)
+rownames(out_degree) <- 1:nrow(out_degree)
+out_degree <- out_degree %>% filter(Nodes %in%  ecneg_vector )
+max(out_degree$`degree(g, mode = "out")`)
+
+#metric calc
+#overall means
+colnames(properties)
+all_means <- properties %>% select(c("Num_Chars","Number of words","LIWC_Swear","LIWC_Family","LIWC_Friends","LIWC_Anger",
+                                     "LIWC_Sad","LIWC_Work","LIWC_Money","LIWC_Health","LIWC_Sexual","LIWC_Leisure")) %>% 
+                              summarise_if(is.numeric, mean)
+
+write.csv(all_means,"all_means.csv")
+mean_data <- properties %>% filter(SOURCE_SUBREDDIT %in% ec_vector)
+
+all_means_degree_vector <- mean_data %>% group_by(SOURCE_SUBREDDIT) %>% 
+  select(c("Num_Chars","Number of words","LIWC_Swear","LIWC_Family","LIWC_Friends","LIWC_Anger",
+           "LIWC_Sad","LIWC_Work","LIWC_Money","LIWC_Health","LIWC_Sexual","LIWC_Leisure")) %>% 
+  summarise_if(is.numeric, mean)
+
+write.csv(all_means_degree_vector,"all_means_ec.csv")
+
+#pos sentiment means
+
+#colnames(properties)
+pos_means <- properties %>% filter(LINK_SENTIMENT==1) %>% select(c("Num_Chars","Number of words","LIWC_Swear","LIWC_Family","LIWC_Friends","LIWC_Anger",
+                                     "LIWC_Sad","LIWC_Work","LIWC_Money","LIWC_Health","LIWC_Sexual","LIWC_Leisure")) %>% 
+  summarise_if(is.numeric, mean)
+
+pos_mean_data <- properties %>% filter(LINK_SENTIMENT==1) %>% filter(SOURCE_SUBREDDIT %in% ecpos_vector)
+
+pos_means_degree_vector <- pos_mean_data %>% group_by(SOURCE_SUBREDDIT) %>% 
+  select(c("Num_Chars","Number of words","LIWC_Swear","LIWC_Family","LIWC_Friends","LIWC_Anger",
+           "LIWC_Sad","LIWC_Work","LIWC_Money","LIWC_Health","LIWC_Sexual","LIWC_Leisure")) %>% 
+  summarise_if(is.numeric, mean)
+write.csv(pos_means_degree_vector,"pos_means_ec.csv")
+
+#neg sentiment means
+
+#colnames(properties)
+neg_means <- properties %>% filter(LINK_SENTIMENT== -1) %>% select(c("Num_Chars","Number of words","LIWC_Swear","LIWC_Family","LIWC_Friends","LIWC_Anger",
+                                                                   "LIWC_Sad","LIWC_Work","LIWC_Money","LIWC_Health","LIWC_Sexual","LIWC_Leisure")) %>% 
+  summarise_if(is.numeric, mean)
+
+neg_mean_data <- properties %>% filter(LINK_SENTIMENT==-1) %>% filter(SOURCE_SUBREDDIT %in% ecneg_vector)
+write.csv(neg_means_degree_vector,"neg_means_ec.csv")
+
+neg_means_degree_vector <- neg_mean_data %>% group_by(SOURCE_SUBREDDIT) %>% 
+  select(c("Num_Chars","Number of words","LIWC_Swear","LIWC_Family","LIWC_Friends","LIWC_Anger",
+           "LIWC_Sad","LIWC_Work","LIWC_Money","LIWC_Health","LIWC_Sexual","LIWC_Leisure")) %>% 
+  summarise_if(is.numeric, mean)
+#The so-called modularity measures the density of connection within clusters compared to the density of connections between clusters
+
